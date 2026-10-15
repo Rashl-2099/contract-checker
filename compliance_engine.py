@@ -1,54 +1,26 @@
+"""
+خط معالجة واستدلال LangChain (LCEL) لفحص العقود، مقيد بهياكل Pydantic،
+مع موزّع ذكي يرجع تلقائياً إلى المحرك المحلي عند غياب المفتاح أو تعذر الاتصال.
+"""
 import os
-from typing import List, Literal
-from pydantic import BaseModel, Field
+from typing import Optional, Tuple
+
 from dotenv import load_dotenv
-
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_openai import ChatOpenAI
-# إذا كنت تستخدم Gemini:
-# from langchain_google_genai import ChatGoogleGenerativeAI
 
-from labor_law_data import SAUDI_LABOR_LAW_RULES, COMMERCIAL_CONTRACT_RULES
+from labor_law_data import CONTRACT_TYPES, COMMERCIAL_CONTRACT_RULES
+from negotiator import llm_available
+from rules_engine import analyze_contract
+from schemas import (AuditReport, ComplianceItem, ContractMetadata, ContractTrap,  # noqa: F401 (إعادة تصدير)
+                     compute_score)
 
 load_dotenv()
 
-# 1. بطاقة البيانات الجوهرية للعقد
-class ContractMetadata(BaseModel):
-    parties: List[str] = Field(description="أسماء أطراف العقد ومسمياتهم")
-    effective_duration: str = Field(description="مدة العقد وتاريخ البدء والانتهاء إن وجد")
-    financial_terms: str = Field(description="القيمة المالية الإجمالية، الرواتب، أو طريقة السداد")
-    renewal_clause: str = Field(description="شرط التجديد والمدة المطلوبة للإشعار بعدم التجديد")
+MAX_CHARS = 60_000  # حماية من تجاوز حد السياق في العقود الطويلة جداً
 
-# 2. كاشف الفخاخ والشروط القاتلة
-class ContractTrap(BaseModel):
-    trap_name: str = Field(description="اسم الفخ التعاقدي (مثل: تعويض مفتوح، تجديد صامت، فسخ تعسفي)")
-    severity: Literal["حرج جداً", "متوسط"] = Field(description="درجة خطورة الفخ")
-    explanation: str = Field(description="لماذا يعد هذا البند فخاً وما الضرر المحتمل منه؟")
-
-# 3. بنود الفحص التفصيلية مع تصنيف أبعاد الخطر
-class ComplianceItem(BaseModel):
-    clause_title: str = Field(description="اسم البند المستخرج من العقد")
-    contract_snippet: str = Field(description="النص الحرفي المقتبس من العقد")
-    status: Literal["متوافق", "مخالف", "غير مذكور", "مبهم / عالي المخاطر"] = Field(description="حالة البند")
-    risk_category: Literal["نظامي وقانوني", "مالي وتعويضي", "تشغيلي وإجرائي", "سرية وحقوق فكرية"] = Field(description="بعد المخاطرة التعاقدية")
-    legal_reference: str = Field(description="القاعدة المرجعية أو المعيار التجاري المطبق")
-    risk_level: Literal["منخفض", "متوسط", "حرج"] = Field(description="مستوى الخطورة")
-    analysis: str = Field(description="التحليل القانوني للسبب")
-    recommendation: str = Field(description="الصياغة البديلة المقترحة للتصحيح")
-
-# 4. التقرير التنفيذي الشامل
-class AuditReport(BaseModel):
-    contract_summary: str = Field(description="ملخص تنفيذي لنوع العقد وأطرافه وموضوعه")
-    compliance_score: int = Field(description="مؤشر السلامة والامتثال من 100")
-    metadata: ContractMetadata = Field(description="بيانات العقد الجوهرية")
-    traps: List[ContractTrap] = Field(description="الفخاخ التعاقدية المكتشفة")
-    items: List[ComplianceItem] = Field(description="قائمة البنود المفحوصة")
 
 def get_audit_chain():
-    parser = PydanticOutputParser(pydantic_object=AuditReport)
-    
-    system_prompt = """أنت مستشار قانوني واستراتيجي خبير في إدارة وتدقيق العقود (Contract Lifecycle Management).
+    system_prompt = """أنت مستشار قانوني واستراتيجي خبير في إدارة وتدقيق العقود (Contract Lifecycle Management) وفق الأنظمة السعودية.
 مهمتك فحص نص العقد المرفق بدقة احترافية وفق المعايير والقواعد التالية الخاصة بـ ({contract_type}):
 
 القواعد والمعايير المرجعية:
@@ -56,37 +28,49 @@ def get_audit_chain():
 
 المهام الإلزامية:
 1. استخراج بطاقة البيانات الجوهرية (الأطراف، المدة، الشروط المالية، والتجديد).
-2. رصد الفخاخ التعاقدية (Killer Clauses) مثل: التعويض غير المحدود، أو فترات السرية غير المحددة، أو الشروط الجزائية المبالغ فيها.
-3. فحص البنود ومطابقتها مع اللوائح، وتصنيف كل بند بحسب بعد المخاطرة (نظامي، مالي، تشغيلي، سرية).
-4. الالتزام الصارم بهيكل البيانات المهيكل.
-
-{format_instructions}
-"""
+2. رصد الفخاخ التعاقدية (Killer Clauses) مثل: التعويض غير المحدود، أو فترات السرية غير المحددة، أو الشروط الجزائية المبالغ فيها، أو الإنهاء الفوري التعسفي. استخدم الخطورة "حرج جداً" للفخاخ القاتلة فقط.
+3. فحص كل بند جوهري في العقد (8 إلى 12 بنداً) ومطابقته مع اللوائح، مع اقتباس النص الحرفي من العقد، وتصنيف كل بند بحسب بعد المخاطرة (نظامي، مالي، تشغيلي، سرية).
+4. إذا غاب بند جوهري متوقع في هذا النوع من العقود فأدرجه بحالة "غير مذكور".
+5. اكتب في recommendation صياغة بديلة كاملة جاهزة للإدراج في العقد.
+6. اكتب جميع الحقول باللغة العربية الفصحى."""
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
-        ("human", "إليك نص العقد:\n\n{contract_text}")
+        ("human", "إليك نص العقد:\n\n{contract_text}"),
     ])
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    # أو لـ Gemini:
-    # llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
+    from langchain_openai import ChatOpenAI
+    llm = ChatOpenAI(model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"), temperature=0, timeout=120, max_retries=1)
+    return prompt | llm.with_structured_output(AuditReport)
 
-    chain = prompt.partial(format_instructions=parser.get_format_instructions()) | llm | parser
-    return chain
 
 def audit_contract_text(contract_text: str, contract_category: str) -> AuditReport:
-    chain = get_audit_chain()
-    
-    if "شركات" in contract_category or "تجاري" in contract_category:
-        selected_rules = COMMERCIAL_CONTRACT_RULES
-        contract_type_label = "عقود الشركات والتوريد التجاري (B2B)"
-    else:
-        selected_rules = SAUDI_LABOR_LAW_RULES
-        contract_type_label = "عقد عمل (نظام العمل)"
-        
-    return chain.invoke({
-        "contract_text": contract_text,
-        "rules": selected_rules,
-        "contract_type": contract_type_label
+    """الفحص عبر LangChain + OpenAI."""
+    config = CONTRACT_TYPES.get(contract_category, {})
+    report: AuditReport = get_audit_chain().invoke({
+        "contract_text": contract_text[:MAX_CHARS],
+        "rules": config.get("rules", COMMERCIAL_CONTRACT_RULES),
+        "contract_type": config.get("label", contract_category),
     })
+    # مؤشر سلامة موحد ومتسق بين المحركين بدلاً من تقدير النموذج الحر
+    report.compliance_score = compute_score(report.items)
+    return report
+
+
+def run_audit(contract_text: str, contract_category: str, engine: str = "auto") -> Tuple[AuditReport, str, Optional[str]]:
+    """
+    engine: "auto" | "llm" | "rules"
+    يعيد (التقرير، المحرك المستخدم فعلياً، رسالة تنبيه إن وجدت).
+    """
+    if engine == "rules":
+        return analyze_contract(contract_text, contract_category), "rules", None
+
+    if not llm_available():
+        warning = "لا يوجد مفتاح OpenAI صالح في ملف .env، تم الفحص بالمحرك المحلي للخبير القانوني." if engine == "llm" else None
+        return analyze_contract(contract_text, contract_category), "rules", warning
+
+    try:
+        return audit_contract_text(contract_text, contract_category), "llm", None
+    except Exception as err:
+        warning = f"تعذر إكمال الفحص عبر نموذج اللغة ({type(err).__name__}: {str(err)[:160]})، تم الرجوع للمحرك المحلي."
+        return analyze_contract(contract_text, contract_category), "rules", warning
