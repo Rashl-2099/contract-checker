@@ -33,7 +33,8 @@ st.markdown("""
     font-family: 'Tajawal', sans-serif !important;
 }
 .stApp [data-testid="stIconMaterial"], .stApp .material-symbols-rounded { font-family: 'Material Symbols Rounded' !important; }
-.stApp { direction: rtl; }
+/* الاتجاه العربي على المحتوى فقط، حتى لا يتأثر موضع الشريط الجانبي وحركة طيّه على الجوال */
+[data-testid="stMain"], [data-testid="stSidebarUserContent"] { direction: rtl; }
 .stApp [data-testid="stMarkdownContainer"], .stApp label, .stApp [data-testid="stMetric"],
 .stApp [data-testid="stCaptionContainer"], .stApp h1, .stApp h2, .stApp h3 { text-align: right; }
 .stApp [data-testid="stMetricValue"] { font-weight: 500; }
@@ -55,7 +56,25 @@ st.markdown("""
 .hero-card h4 { margin: 0 0 .4rem; }
 .engine-pill {
     display: inline-block; padding: .15rem .7rem; border-radius: 999px; font-size: .8rem;
-    background: rgba(255,75,75,.10); color: #d33; border: 1px solid rgba(255,75,75,.25); margin-left: .4rem;
+    background: rgba(255,75,75,.10); color: #d33; border: 1px solid rgba(255,75,75,.25); margin: 0 0 .35rem .4rem;
+}
+
+/* التوافق مع الجوال */
+@media (max-width: 640px) {
+    [data-testid="stMainBlockContainer"] { padding: 3.2rem 0.9rem 2rem; }
+    .stApp h1 { font-size: 1.55rem !important; line-height: 1.5 !important; }
+    .stApp h2 { font-size: 1.3rem !important; }
+    .stApp h3 { font-size: 1.12rem !important; line-height: 1.6 !important; }
+    .stApp [data-testid="stMetricValue"] { font-size: 1.8rem; }
+    .stApp [data-testid="stMetric"] { padding: .2rem 0; }
+    .stApp summary p { font-size: .9rem; line-height: 1.7; }
+    .stApp [data-testid="stChatMessage"] { padding: .6rem .5rem; gap: .5rem; }
+    .clause-quote, .alt-clause { padding: .6rem .75rem; font-size: .9rem; line-height: 1.8; }
+    .meta-row { font-size: .95rem; margin-bottom: .6rem; }
+    .hero-card { padding: .9rem 1rem; margin-bottom: .6rem; }
+    .engine-pill { font-size: .75rem; padding: .1rem .55rem; }
+    /* منع التكبير التلقائي في Safari عند الكتابة */
+    .stApp input, .stApp textarea { font-size: 16px !important; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -67,6 +86,12 @@ ENGINE_OPTIONS = {
     "المحرك المحلي (بدون إنترنت)": "rules",
 }
 STATUS_BADGE = {"متوافق": "🟢", "مخالف": "🔴", "مبهم / عالي المخاطر": "🟠", "غير مذكور": "⚪"}
+
+
+def ltr(text: str) -> str:
+    """يعزل النص الإنجليزي داخل العناوين العربية حتى لا تنقلب أقواسه عند التفاف السطر على الجوال."""
+    unbreakable = text.replace(" ", "\N{NO-BREAK SPACE}").replace("-", "\N{NON-BREAKING HYPHEN}")
+    return "\N{LEFT-TO-RIGHT ISOLATE}" + unbreakable + "\N{POP DIRECTIONAL ISOLATE}"
 
 # تهيئة الذاكرة التفاعلية
 for key, default in {"audit_report": None, "negotiation_data": {}, "audit_meta": {}}.items():
@@ -154,7 +179,7 @@ with st.sidebar:
 
     st.markdown("---")
     # استعراض سجل الفحوصات المحفوظة في SQLite
-    st.subheader("🗄️ سجل الفحوصات (SQLite DB)")
+    st.subheader(f"🗄️ سجل الفحوصات {ltr('(SQLite DB)')}")
     records = get_recent_audits(limit=8)
     if records:
         current_id = st.session_state.audit_meta.get("id")
@@ -183,7 +208,7 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # الواجهة الرئيسية
 # ---------------------------------------------------------------------------
-st.title("⚖️ منصة تدقيق العقود والفحص النافي للجهالة (Legal Due Diligence)")
+st.title(f"⚖️ منصة تدقيق العقود والفحص النافي للجهالة {ltr('(Legal Due Diligence)')}")
 st.caption("كاشف الفخاخ، محاكي التفاوض، وتصدير التقارير، قاعدة بيانات SQLite، نظام متكامل مبني بواسطة LangChain")
 
 report: AuditReport = st.session_state.audit_report
@@ -236,7 +261,7 @@ with col4:
 st.divider()
 
 # 2. بطاقة البيانات الجوهرية
-st.subheader("📌 بطاقة البيانات الجوهرية والالتزامات (Contract Metadata)")
+st.subheader(f"📌 بطاقة البيانات الجوهرية والالتزامات {ltr('(Contract Metadata)')}")
 m_col1, m_col2 = st.columns(2)
 parties_str = "، ".join(metadata_obj.parties) if metadata_obj.parties else "غير محدد"
 with m_col1:
@@ -249,7 +274,7 @@ with st.expander("📋 الملخص التنفيذي"):
     st.write(report.contract_summary)
 
 # 3. كاشف الفخاخ التعاقدية
-st.subheader("🚨 رادار الفخاخ التعاقدية والشروط الخطرة (Killer Clauses)")
+st.subheader(f"🚨 رادار الفخاخ التعاقدية والشروط الخطرة {ltr('(Killer Clauses)')}")
 if traps_list:
     for trap in sorted(traps_list, key=lambda t: t.severity != "حرج جداً"):
         message = f"**فخ: {trap.trap_name}** ({trap.severity})\n\n{trap.explanation}"
@@ -318,7 +343,7 @@ for idx, item in enumerate(report.items):
                     with st.chat_message("user" if is_weak else "assistant", avatar="👤" if is_weak else "🏢"):
                         st.markdown(f"**{turn.speaker}:** {turn.argument}")
 
-                st.success("📜 **الصيغة التوافقية المتفق عليها (Win-Win):**")
+                st.success(f"📜 **الصيغة التوافقية المتفق عليها {ltr('(Win-Win)')}:**")
                 st.markdown(f'<div class="alt-clause">{html.escape(neg_result.agreed_clause)}</div>', unsafe_allow_html=True)
                 b1, b2 = st.columns(2)
                 b1.info(f"🏢 **مكاسب {strong_party.replace('ممثل ', '')}:**\n\n{neg_result.benefits_for_party_a}")
