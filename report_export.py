@@ -1,64 +1,65 @@
 """
-تصدير مذكرة الفحص القانوني النافي للجهالة (Markdown)
+تصدير مذكرة الفحص القانوني النافي للجهالة (Markdown) — بالعربية أو الإنجليزية
 """
 from datetime import datetime
 from typing import Dict, Optional
 
+from i18n import engine_label, show, source_label, tr
+from labor_law_data import type_info
 from schemas import AuditReport, NegotiationSession, report_stats
 
+# متاح للتوافق مع الاستخدامات القديمة
 ENGINE_LABELS = {"llm": "LangChain + OpenAI", "rules": "المحرك المحلي للخبير القانوني"}
 
 
 def build_memo(report: AuditReport, category: str, engine: str = "rules", source: str = "",
-               negotiations: Optional[Dict[int, NegotiationSession]] = None) -> str:
+               negotiations: Optional[Dict[int, NegotiationSession]] = None, lang: str = "ar") -> str:
     stats = report_stats(report)
     md = report.metadata
+    sep = ", " if lang == "en" else "، "
     lines = [
-        "# مذكرة الفحص القانوني النافي للجهالة (Legal Due Diligence Memo)",
+        tr("memo_title", lang),
         "",
-        f"- **تاريخ التقرير:** {datetime.now().strftime('%Y/%m/%d %H:%M')}",
-        f"- **تصنيف العقد:** {category}",
-        f"- **مصدر المستند:** {source or '—'}",
-        f"- **محرك التحليل:** {ENGINE_LABELS.get(engine, engine)}",
-        f"- **مؤشر السلامة القانونية:** {report.compliance_score}%",
-        f"- **بنود غير متوازنة:** {stats['issues']} | **مخاطر حرجة:** {stats['critical']} | **فخاخ مرصودة:** {stats['traps']}",
+        f"- **{tr('memo_date', lang)}:** {datetime.now().strftime('%Y/%m/%d %H:%M')}",
+        f"- **{tr('memo_category', lang)}:** {type_info(category, lang)['name']}",
+        f"- **{tr('memo_source', lang)}:** {source_label(source, lang)}",
+        f"- **{tr('memo_engine', lang)}:** {engine_label(engine, lang)}",
+        f"- **{tr('memo_score', lang)}:** {report.compliance_score}%",
+        "- " + tr("memo_counts", lang, i=stats["issues"], c=stats["critical"], t=stats["traps"]),
         "",
-        "## 1. الملخص التنفيذي",
+        tr("memo_s1", lang),
         report.contract_summary,
         "",
-        "## 2. بطاقة البيانات الجوهرية",
-        f"- **الأطراف:** {'، '.join(md.parties) if md.parties else 'غير محدد'}",
-        f"- **المدة والسريان:** {md.effective_duration}",
-        f"- **المقابل المالي وشروط الدفع:** {md.financial_terms}",
-        f"- **أحكام التجديد والإنهاء:** {md.renewal_clause}",
+        tr("memo_s2", lang),
+        f"- **{tr('parties', lang)}:** {sep.join(md.parties) if md.parties else tr('not_set', lang)}",
+        f"- **{tr('duration', lang)}:** {md.effective_duration}",
+        f"- **{tr('financial', lang)}:** {md.financial_terms}",
+        f"- **{tr('renewal', lang)}:** {md.renewal_clause}",
         "",
-        "## 3. الفخاخ والشروط القاتلة المرصودة",
+        tr("memo_s3", lang),
     ]
     if report.traps:
-        lines += [f"- **[{t.severity}] {t.trap_name}:** {t.explanation}" for t in report.traps]
+        lines += [f"- **[{show(t.severity, lang)}] {t.trap_name}:** {t.explanation}" for t in report.traps]
     else:
-        lines.append("- لم يتم رصد فخاخ تعاقدية.")
+        lines.append(tr("memo_no_traps", lang))
 
-    lines += ["", "## 4. نتائج فحص البنود"]
+    lines += ["", tr("memo_s4", lang)]
     for idx, item in enumerate(report.items):
         lines += [
             "",
-            f"### {idx + 1}. {item.clause_title} — {item.status} (خطورة: {item.risk_level} | البعد: {item.risk_category})",
+            f"### {idx + 1}. {item.clause_title} — {show(item.status, lang)} "
+            f"({tr('memo_sev', lang)}: {show(item.risk_level, lang)} | {tr('dimension', lang)}: {show(item.risk_category, lang)})",
             f"> {item.contract_snippet}",
             "",
-            f"- **السند القانوني / المعيار:** {item.legal_reference}",
-            f"- **التحليل:** {item.analysis}",
-            f"- **الصياغة البديلة المقترحة:** {item.recommendation}",
+            f"- **{tr('reference', lang)}:** {item.legal_reference}",
+            f"- **{tr('analysis', lang)}:** {item.analysis}",
+            f"- **{tr('memo_alt', lang)}:** {item.recommendation}",
         ]
         session = (negotiations or {}).get(idx)
         if session:
-            lines += ["", "**محضر جلسة التفاوض الآلي:**"]
+            lines += ["", tr("memo_neg", lang)]
             lines += [f"- **{turn.speaker}:** {turn.argument}" for turn in session.dialogue]
-            lines += [f"- **الصيغة التوافقية (Win-Win):** {session.agreed_clause}"]
+            lines += [f"- **{tr('memo_agreed', lang)}:** {session.agreed_clause}"]
 
-    lines += [
-        "",
-        "---",
-        "_هذه المذكرة استرشادية صادرة عن نظام آلي، ولا تغني عن مراجعة محامٍ مرخص قبل التوقيع._",
-    ]
+    lines += ["", "---", tr("memo_disclaimer", lang)]
     return "\n".join(lines)

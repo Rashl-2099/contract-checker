@@ -169,3 +169,178 @@ DEMO_CONTRACTS = {
     "عقد خدمات تقنية / اشتراك سحابي (SaaS)": DEMO_SAAS_CONTRACT,
     "اتفاقية عدم إفصاح وسرية (NDA)": DEMO_NDA_CONTRACT,
 }
+
+# ---------------------------------------------------------------------------
+# English demo contracts — same deliberate traps as the Arabic versions
+# ---------------------------------------------------------------------------
+DEMO_B2B_CONTRACT_EN = """
+Technical Services and Software Supply Agreement (B2B)
+This Agreement is made on Sunday, 04/10/2026, between:
+First Party: Al-Ameel Holding Company, hereinafter referred to as the "Client".
+Second Party: Software Solutions Est., hereinafter referred to as the "Provider".
+
+Article (1) Subject of the Agreement:
+The Provider shall supply, develop and operate an enterprise resource planning platform in accordance with the technical specifications attached in Annex (A).
+
+Article (2) Term and Effectiveness:
+This Agreement shall be valid for two years from the date of signature and shall automatically renew for similar periods unless the First Party notifies the Second Party in writing of its wish not to renew 90 days before its expiry.
+
+Article (3) Consideration and Payment Terms:
+The total value of the Agreement is SAR 1,200,000 inclusive of VAT, payable in four quarterly instalments within 30 days of receipt of the approved invoice.
+
+Article (4) Delay Penalties:
+If the Provider delays delivery of any phase for more than 3 days, the Client may deduct a delay penalty of 40% of the total contract value in one lump sum without the need for notice.
+
+Article (5) Limitation of Liability and Indemnity:
+The Provider shall bear full unlimited liability for any direct or indirect losses or loss of profits that the Client may suffer as a result of operating the system.
+
+Article (6) Confidentiality and Data Protection:
+The Provider shall maintain strict confidentiality of all technical data forever and on a permanent basis without any time limit after the expiry of the Agreement.
+
+Article (7) Intellectual Property:
+Intellectual property rights in the works developed specifically under this Agreement shall vest in the Client, while the Provider retains ownership of its pre-existing tools and software libraries and grants the Client a perpetual licence to use them within the platform.
+
+Article (8) Immediate Termination:
+The Client alone may terminate this Agreement at any time with immediate effect without prior notice and without any obligation to pay invoices for partially completed work.
+
+Article (9) Force Majeure:
+Neither party shall be liable for delays resulting from force majeure circumstances beyond its control, provided that the other party is notified within 7 days of their occurrence.
+
+Article (10) Dispute Resolution:
+This Agreement shall be governed by the laws of the Kingdom of Saudi Arabia, and any dispute shall be referred to the Saudi Center for Commercial Arbitration in Riyadh.
+"""
+
+DEMO_LABOR_CONTRACT_EN = """
+Fixed-Term Employment Contract
+First Party (Employer): Modern Technology Company
+Second Party (Employee): Mohammed Abdullah Al-Salem
+
+Article (1) Contract Term:
+The term of this contract is one year starting from the date of commencement of work, and it shall automatically renew for a similar period unless either party notifies the other in writing 60 days before its expiry.
+
+Article (2) Wage:
+The Second Party shall receive a total monthly wage of SAR 12,000 paid at the end of each Gregorian month.
+
+Article (3) Probation Period:
+The Second Party shall be subject to a probation period of 8 months, which the First Party may extend more than once at its discretion.
+
+Article (4) Working Hours:
+Official working hours are 10 hours per day for 6 days per week, and the employee shall not be entitled to any overtime pay for additional working hours.
+
+Article (5) Annual Leave:
+The Second Party is entitled to paid annual leave of 15 days for each year.
+
+Article (6) End-of-Service Award:
+The employee waives the end-of-service award upon resignation before completing five years of service.
+
+Article (7) Non-Competition:
+The employee undertakes not to work for any competitor in all GCC countries for 4 years from the date of expiry of the contract.
+
+Article (8) Termination of Contract:
+The First Party may terminate the contract immediately without notice or award for any reason it deems appropriate.
+
+Article (9) Confidentiality:
+The employee shall maintain the confidentiality of work secrets during the term of the contract and for two years after its expiry.
+
+Article (10) Dispute Resolution:
+The labour courts in the Kingdom of Saudi Arabia shall have jurisdiction over any dispute arising from this contract.
+"""
+
+DEMO_LEASE_CONTRACT_EN = """
+Commercial Unit Lease Agreement
+Landlord: Al-Riyada Real Estate Investment Company
+Tenant: Al-Nukhba Trading Est.
+
+Article (1) Lease Term:
+The lease term is 3 years starting from the date of handover of the premises, and it shall automatically renew unless the Tenant notifies the Landlord of its wish not to renew 180 days before the end of the term.
+
+Article (2) Rent and Payment Method:
+The annual rent is SAR 85,000 payable in advance in two equal instalments within 10 days of the start of each half-year.
+
+Article (3) Rent Increase:
+The Landlord may increase the rent at any time during the term of the contract at its discretion, and the Tenant shall pay according to the new amount.
+
+Article (4) Security Deposit:
+The Tenant shall pay SAR 20,000 as a security deposit which is non-refundable under any circumstances upon expiry of the contract.
+
+Article (5) Maintenance:
+The Tenant shall bear all maintenance works including structural and foundational maintenance of the property and main installations.
+
+Article (6) Termination and Eviction:
+If the Tenant is late in paying any instalment by one day, the Landlord may terminate the contract immediately and evict the premises without notice.
+
+Article (7) Subletting:
+The Tenant may not sublet or assign the contract except with the prior written consent of the Landlord.
+
+Article (8) Dispute Resolution:
+The competent court in Dammam shall have jurisdiction over any dispute arising from this contract.
+"""
+
+DEMO_SAAS_CONTRACT_EN = """
+Cloud Services Subscription Agreement (SaaS)
+First Party: Smart Cloud IT Company (the Provider)
+Second Party: Modern Retail Company (the Client)
+
+Article (1) Subscription Term:
+The subscription term is one year, renewing automatically, and either party may elect not to renew by written notice 30 days before the end of the term.
+
+Article (2) Fees and Payment Terms:
+Subscription fees are SAR 15,000 per month payable in advance, and the Provider may amend the fees with 7 days' notice.
+
+Article (3) Service Level:
+The Provider provides the service "as is" without any guarantee of availability, performance or service continuity.
+
+Article (4) Data Protection:
+The Provider may store and process Client data on servers outside the Kingdom and share it with third parties for service improvement purposes.
+
+Article (5) Limitation of Liability:
+The Provider's liability shall in no event exceed the value of one month's fees.
+
+Article (6) Data Ownership:
+All rights in the data and content uploaded by the Client to the platform shall vest in the Provider.
+
+Article (7) Termination:
+Either party may terminate the Agreement by written notice of 30 days, and the Provider shall deliver a complete copy of the Client's data.
+
+Article (8) Confidentiality:
+Both parties shall maintain the confidentiality of exchanged information for 3 years after the expiry of the Agreement.
+
+Article (9) Governing Law:
+This Agreement shall be governed by the laws of the State of Delaware, USA, and disputes shall be referred to the courts of New York.
+"""
+
+DEMO_NDA_CONTRACT_EN = """
+Non-Disclosure and Confidentiality Agreement (NDA)
+Disclosing Party: Financial Innovation Company
+Receiving Party: Digital Consulting Company
+
+Article (1) Term of the Agreement:
+This Agreement shall be valid for one year from the date of signature for the purpose of evaluating the technical partnership opportunity.
+
+Article (2) Definition of Confidential Information:
+Confidential Information includes all information in whatever form, whether or not it is publicly available, and whether disclosed before or after the signing of this Agreement.
+
+Article (3) Duration of the Confidentiality Obligation:
+The Receiving Party's confidentiality obligation shall continue forever and shall not lapse upon expiry of the Agreement.
+
+Article (4) Liquidated Damages:
+The Receiving Party shall pay liquidated damages of SAR 5,000,000 for each breach without the need to prove damage.
+
+Article (5) Non-Solicitation:
+The Receiving Party shall not solicit employees of the Disclosing Party or deal directly with its clients for two years within the Kingdom.
+
+Article (6) Dispute Resolution:
+This Agreement shall be governed by the laws of the Kingdom of Saudi Arabia, and the Commercial Court in Riyadh shall have jurisdiction over any dispute.
+"""
+
+DEMO_CONTRACTS_EN = {
+    "عقد شركات / تجاري وتوريد (B2B)": DEMO_B2B_CONTRACT_EN,
+    "عقد عمل (أفراد ومنشآت)": DEMO_LABOR_CONTRACT_EN,
+    "عقد إيجار عقاري": DEMO_LEASE_CONTRACT_EN,
+    "عقد خدمات تقنية / اشتراك سحابي (SaaS)": DEMO_SAAS_CONTRACT_EN,
+    "اتفاقية عدم إفصاح وسرية (NDA)": DEMO_NDA_CONTRACT_EN,
+}
+
+
+def demo_contract(category: str, lang: str = "ar") -> str:
+    return (DEMO_CONTRACTS_EN if lang == "en" else DEMO_CONTRACTS)[category]

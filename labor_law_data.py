@@ -67,6 +67,58 @@ NDA_CONTRACT_RULES = """
 5. إعادة المعلومات وإتلافها: يجب تنظيم آلية إعادة أو إتلاف المعلومات عند انتهاء الاتفاقية.
 """
 
+# ---------------------------------------------------------------------------
+# النسخة الإنجليزية من القواعد (تُستخدم عند اختيار واجهة English)
+# ---------------------------------------------------------------------------
+SAUDI_LABOR_LAW_RULES_EN = """
+Mandatory rules of the Saudi Labor Law:
+1. Probation (Article 53): should not exceed 90 days, extendable to a total of 180 days only by explicit written agreement; an employee may not be placed on probation more than once with the same employer.
+2. Working hours (Article 98): maximum 8 hours per day or 48 hours per week; overtime (Article 107) is paid at the hourly wage plus 50% of the basic wage.
+3. Notice period (Article 75): at least 60 days for indefinite contracts and 30 days for fixed-term contracts; termination without notice is limited to the cases in Article 80.
+4. Annual leave (Article 109): at least 21 days (30 days after 5 years of continuous service) and may not be waived.
+5. Non-compete (Article 83): may not exceed two years and must specify the place and type of work.
+6. End-of-service award (Article 84): a statutory right of the employee; any condition contrary to the Law is void unless more beneficial to the employee (Article 8).
+"""
+
+COMMERCIAL_CONTRACT_RULES_EN = """
+Standards for reviewing business, supply and commercial service contracts (B2B):
+1. Limitation of liability: the contract should set a specific financial cap (e.g. amounts paid or a set percentage); absolute, unlimited liability is high risk.
+2. Penalties and delay fines: delay penalties should be reasonable (common commercial practice does not exceed 10%-20% of the total contract value); excessive or open-ended penalties are unfair and a legal risk.
+3. Confidentiality: the duration of the confidentiality obligation after expiry should be specified (typically 2 to 5 years); perpetual or indefinite confidentiality is impractical and excessive.
+4. Termination and notice: a fair written notice and cure period (usually 14 to 30 days) should precede termination for breach; immediate termination without cause or notice is abusive.
+5. Disputes and force majeure: the competent court or arbitral body should be specified, with an explicit clause excusing the parties in force majeure events.
+6. Payment and intellectual property: usual payment terms are 30 to 60 days from invoice; the supplier's pre-existing IP (background IP) stays with the supplier with a licence granted.
+"""
+
+LEASE_CONTRACT_RULES_EN = """
+Standards for reviewing real-estate lease contracts (residential and commercial):
+1. Rent increase: rent should be fixed for the term, or any increase must have a known rate and date; a unilateral increase at any time is abusive.
+2. Security deposit: refundable at expiry after deducting documented damage only; a deposit that is non-refundable in all cases is unfair to the tenant.
+3. Maintenance: structural and major maintenance (structure, roofs, main installations) is the landlord's; minor operational maintenance is the tenant's.
+4. Eviction and termination: the tenant should get a reasonable warning period (usually at least 30 days) to pay arrears before termination.
+5. Renewal: the non-renewal notice period should be reasonable (30 to 90 days); very long notice periods restrict the tenant.
+6. Registration: the lease should be registered on the Ejar platform to become an enforceable instrument.
+"""
+
+SAAS_CONTRACT_RULES_EN = """
+Standards for reviewing technical services and cloud subscription (SaaS) contracts:
+1. Service level agreement (SLA): availability of at least 99.5% with service credits for breaches; providing the service "as is" without any guarantee is high risk.
+2. Data protection: comply with the Personal Data Protection Law (PDPL); no transfer of data outside the Kingdom or sharing with third parties except under the legal controls and with the client's consent.
+3. Data ownership: client data and content belong to the client, with the right to retrieve it in full at expiry.
+4. Pricing: the provider may not change fees unilaterally during the subscription, or must give adequate notice (at least 60 days) with the client's right to terminate.
+5. Liability cap: the cap should be proportionate (typically 12 months of fees); a token cap (one month of fees) empties the obligation of meaning.
+6. Governing law: the contract should preferably be governed by Saudi law with courts or arbitration inside the Kingdom.
+"""
+
+NDA_CONTRACT_RULES_EN = """
+Standards for reviewing non-disclosure and confidentiality agreements (NDA):
+1. Definition of confidential information: must be specific and exclude publicly available information, information already known to the recipient, independently developed information, and information required to be disclosed by law.
+2. Duration: usually 2 to 5 years after expiry; a perpetual obligation is impractical and hard to enforce (except for precisely defined trade secrets).
+3. Liquidated damages: must be proportionate to the expected harm; huge lump sums per breach without proof of damage may be reduced by courts and are a major financial risk.
+4. Non-solicitation and non-compete: should not exceed two years with a clear geographic and subject scope.
+5. Return and destruction: the agreement should regulate returning or destroying information at expiry.
+"""
+
 # خريطة تصنيفات العقود المدعومة في المنصة
 # parties = (الطرف الأضعف الذي نمثله في التفاوض، الطرف الأقوى صاحب الصياغة)
 CONTRACT_TYPES = {
@@ -75,29 +127,65 @@ CONTRACT_TYPES = {
         "rules": COMMERCIAL_CONTRACT_RULES,
         "demo_note": "تم تحميل نموذج عقد شركات وتوريد لاختبار الفخاخ والشروط الجزائية.",
         "parties": ("ممثل المزود (الطرف الثاني)", "ممثل العميل (الطرف الأول)"),
+        "name_en": "Business / Commercial & Supply (B2B)",
+        "label_en": "Business and Commercial Supply Contract (B2B)",
+        "rules_en": COMMERCIAL_CONTRACT_RULES_EN,
+        "demo_note_en": "A sample B2B supply contract was loaded to test traps and penalty clauses.",
+        "parties_en": ("Provider's Representative (Second Party)", "Client's Representative (First Party)"),
     },
     "عقد عمل (أفراد ومنشآت)": {
         "label": "عقد عمل (نظام العمل السعودي)",
         "rules": SAUDI_LABOR_LAW_RULES,
         "demo_note": "تم تحميل نموذج عقد عمل لاختبار المخالفات النظامية.",
         "parties": ("ممثل الموظف", "ممثل الشركة"),
+        "name_en": "Employment Contract (Individuals & Companies)",
+        "label_en": "Employment Contract (Saudi Labor Law)",
+        "rules_en": SAUDI_LABOR_LAW_RULES_EN,
+        "demo_note_en": "A sample employment contract was loaded to test legal violations.",
+        "parties_en": ("Employee's Representative", "Company's Representative"),
     },
     "عقد إيجار عقاري": {
         "label": "عقد إيجار عقاري (سكني / تجاري)",
         "rules": LEASE_CONTRACT_RULES,
         "demo_note": "تم تحميل نموذج عقد إيجار لاختبار شروط الزيادة والضمان والصيانة.",
         "parties": ("ممثل المستأجر", "ممثل المؤجر"),
+        "name_en": "Real-Estate Lease",
+        "label_en": "Real-Estate Lease (Residential / Commercial)",
+        "rules_en": LEASE_CONTRACT_RULES_EN,
+        "demo_note_en": "A sample lease was loaded to test rent increase, deposit and maintenance terms.",
+        "parties_en": ("Tenant's Representative", "Landlord's Representative"),
     },
     "عقد خدمات تقنية / اشتراك سحابي (SaaS)": {
         "label": "عقد خدمات تقنية واشتراك سحابي (SaaS)",
         "rules": SAAS_CONTRACT_RULES,
         "demo_note": "تم تحميل نموذج اشتراك سحابي لاختبار مستوى الخدمة وحماية البيانات.",
         "parties": ("ممثل العميل المشترك", "ممثل مزود الخدمة"),
+        "name_en": "Tech Services / Cloud Subscription (SaaS)",
+        "label_en": "Technical Services and Cloud Subscription (SaaS)",
+        "rules_en": SAAS_CONTRACT_RULES_EN,
+        "demo_note_en": "A sample cloud subscription was loaded to test service levels and data protection.",
+        "parties_en": ("Subscriber's Representative", "Service Provider's Representative"),
     },
     "اتفاقية عدم إفصاح وسرية (NDA)": {
         "label": "اتفاقية عدم إفصاح وسرية (NDA)",
         "rules": NDA_CONTRACT_RULES,
         "demo_note": "تم تحميل نموذج اتفاقية سرية لاختبار نطاق المعلومات والتعويض الاتفاقي.",
         "parties": ("ممثل الطرف المتلقي", "ممثل الطرف المفصح"),
+        "name_en": "Non-Disclosure Agreement (NDA)",
+        "label_en": "Non-Disclosure and Confidentiality Agreement (NDA)",
+        "rules_en": NDA_CONTRACT_RULES_EN,
+        "demo_note_en": "A sample NDA was loaded to test the information scope and liquidated damages.",
+        "parties_en": ("Receiving Party's Representative", "Disclosing Party's Representative"),
     },
 }
+
+
+def type_info(category: str, lang: str = "ar") -> dict:
+    """بيانات التصنيف باللغة المطلوبة (المفتاح الداخلي للتصنيف يبقى عربياً)."""
+    info = CONTRACT_TYPES.get(category, {})
+    if lang == "en":
+        return {"name": info.get("name_en", category), "label": info.get("label_en", category),
+                "rules": info.get("rules_en", COMMERCIAL_CONTRACT_RULES_EN), "demo_note": info.get("demo_note_en", ""),
+                "parties": info.get("parties_en", ("Second Party's Representative", "First Party's Representative"))}
+    return {"name": category, "label": info.get("label", category), "rules": info.get("rules", COMMERCIAL_CONTRACT_RULES),
+            "demo_note": info.get("demo_note", ""), "parties": info.get("parties", ("ممثل الطرف الثاني", "ممثل الطرف الأول"))}
