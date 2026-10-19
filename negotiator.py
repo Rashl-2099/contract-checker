@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from labor_law_data import type_info
 from schemas import NegotiationSession, NegotiationTurn
+from security import logger
 
 load_dotenv()
 
@@ -555,9 +556,10 @@ def negotiate(clause_title: str, problematic_text: str, issue_context: str, reco
     if engine != "rules" and llm_available():
         try:
             return run_negotiation(clause_title, problematic_text, issue_context, contract_category, lang), "llm", None
-        except Exception as err:  # الرجوع للمحرك المحلي عند أي خطأ في الاتصال
-            warning = (f"Could not reach the language model ({type(err).__name__}); the local negotiation simulator was used." if en
-                       else f"تعذر الاتصال بنموذج اللغة ({type(err).__name__})، تم استخدام محاكي التفاوض المحلي.")
+        except Exception:  # الرجوع للمحرك المحلي عند أي خطأ في الاتصال؛ التفاصيل في سجل الخادم فقط
+            logger.exception("LLM negotiation failed; falling back to templates")
+            warning = ("The language model is unavailable right now; the local negotiation simulator was used." if en
+                       else "نموذج اللغة غير متاح حالياً، تم استخدام محاكي التفاوض المحلي.")
             return fallback(), "rules", warning
     warning = None if engine == "rules" else (
         "No valid OpenAI key; the local negotiation simulator was used." if en else "لا يوجد مفتاح OpenAI صالح، تم استخدام محاكي التفاوض المحلي.")

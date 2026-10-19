@@ -1,5 +1,5 @@
-import html
 import re
+import secrets
 
 import streamlit as st
 from pypdf import PdfReader
@@ -14,6 +14,8 @@ from negotiator import llm_available, negotiate
 from report_export import build_memo
 from rules_engine import analyze_contract
 from schemas import AuditReport, ISSUE_STATUSES, report_stats
+from security import (HISTORY_MODE, LLM_LIMITER, LLM_SESSION_LIMIT, MAX_CONTRACT_CHARS, MAX_PDF_PAGES,
+                      NEGOTIATION_SESSION_LIMIT, logger, md_escape, safe_html, within_session_limit)
 
 # تهيئة قاعدة بيانات SQLite عند إقلاع التطبيق
 init_db()
@@ -114,9 +116,14 @@ def detect_lang(report: AuditReport) -> str:
 
 
 # تهيئة الذاكرة التفاعلية
-for key, default in {"audit_report": None, "negotiation_data": {}, "audit_meta": {}}.items():
+for key, default in {"audit_report": None, "negotiation_data": {}, "audit_meta": {}, "_llm_audits": 0, "_llm_negs": 0}.items():
     if key not in st.session_state:
         st.session_state[key] = default
+
+# هوية عشوائية لكل جلسة: كل زائر يرى سجل فحوصاته فقط (إلا في الوضع المحلي المشترك HISTORY_MODE=shared)
+if "_owner" not in st.session_state:
+    st.session_state._owner = secrets.token_hex(16)
+owner = None if HISTORY_MODE == "shared" else st.session_state._owner
 
 
 def load_audit_into_state(record: dict):
@@ -126,14 +133,22 @@ def load_audit_into_state(record: dict):
     st.session_state.audit_meta = {
         "id": record["id"], "category": record["contract_category"], "engine": record.get("engine") or "rules",
         "source": record.get("source") or "", "timestamp": record["timestamp"], "text": "",
-        "prev_score": get_previous_score(record["contract_category"], record["id"]), "lang": detect_lang(report),
+        "prev_score": get_previous_score(record["contract_category"], record["id"], owner), "lang": detect_lang(report),
     }
 
 
-def read_pdf(uploaded) -> tuple[str, int]:
+def read_pdf(uploaded) -> tuple[str, int, bool]:
+    """يقرأ نص الـ PDF بحد أقصى لعدد الصفحات؛ يعيد (النص، عدد الصفحات، هل اقتُطع)."""
     reader = PdfReader(uploaded)
-    text = "\n".join(page.extract_text() or "" for page in reader.pages)
-    return text, len(reader.pages)
+    if reader.is_encrypted:
+        raise PermissionError("encrypted PDF")
+    total = len(reader.pages)
+    parts = []
+    for page in reader.pages[:MAX_PDF_PAGES]:
+        parts.append(page.extract_text() or "")
+        if sum(len(x) for x in parts) > MAX_CONTRACT_CHARS:
+            break
+    return "\n".join(parts), total, total > MAX_PDF_PAGES
 
 
 # ---------------------------------------------------------------------------
@@ -184,14 +199,19 @@ with st.sidebar:
         uploaded_file = st.file_uploader(t("upload_label"), type=["pdf"])
         if uploaded_file:
             try:
-                contract_text, pages = read_pdf(uploaded_file)
-                source_code = f"pdf:{uploaded_file.name}"
+                contract_text, pages, capped = read_pdf(uploaded_file)
+                source_code = f"pdf:{uploaded_file.name[:120]}"
                 if contract_text.strip():
                     st.success(t("pdf_ok", pages=pages))
+                    if capped:
+                        st.warning(t("pdf_capped", n=MAX_PDF_PAGES))
                 else:
                     st.warning(t("pdf_empty"))
-            except Exception as err:
-                st.error(t("pdf_error", err=err))
+            except PermissionError:
+                st.error(t("pdf_encrypted"))
+            except Exception:
+                logger.exception("PDF read failed")
+                st.error(t("pdf_error"))
     else:
         contract_text = remember("paste", st.text_area(t("paste_label"), value=st.session_state.get("_paste", ""), height=220,
                                                        placeholder=t("paste_placeholder"), key=f"paste_{lang}"))
@@ -205,16 +225,27 @@ with st.sidebar:
 
     if st.button(t("run"), type="primary", width="stretch"):
         if contract_text.strip():
+            if len(contract_text) > MAX_CONTRACT_CHARS:
+                contract_text = contract_text[:MAX_CONTRACT_CHARS]
+                st.warning(t("text_truncated", n=f"{MAX_CONTRACT_CHARS:,}"))
+            # حدود استخدام نموذج اللغة لحماية رصيد المفتاح: لكل جلسة ولكل الزوار مجتمعين
+            run_engine = engine_choice
+            if engine_choice != "rules" and llm_available():
+                if within_session_limit(st.session_state._llm_audits, LLM_SESSION_LIMIT) and LLM_LIMITER.try_acquire():
+                    st.session_state._llm_audits += 1
+                else:
+                    run_engine = "rules"
+                    st.info(t("limit_audit"))
             with st.status(t("running"), expanded=True) as status:
                 st.write(t("step_read"))
                 st.write(t("step_check"))
-                report, engine_used, warning = run_audit(contract_text, contract_category, engine_choice, lang)
+                report, engine_used, warning = run_audit(contract_text, contract_category, run_engine, lang)
                 st.write(t("step_traps"))
                 stats = report_stats(report)
                 audit_id = save_audit_record(
                     category=contract_category, score=report.compliance_score, issues=stats["issues"],
                     critical=stats["critical"], traps=stats["traps"], summary=report.contract_summary,
-                    report_json=report.model_dump_json(), engine=engine_used, source=source_code,
+                    report_json=report.model_dump_json(), engine=engine_used, source=source_code, owner=owner,
                 )
                 st.write(t("step_save"))
                 status.update(label=t("done"), state="complete", expanded=False)
@@ -224,7 +255,7 @@ with st.sidebar:
             st.session_state.negotiation_data = {}
             st.session_state.audit_meta = {
                 "id": audit_id, "category": contract_category, "engine": engine_used, "source": source_code,
-                "text": contract_text, "prev_score": get_previous_score(contract_category, audit_id), "lang": lang,
+                "text": contract_text, "prev_score": get_previous_score(contract_category, audit_id, owner), "lang": lang,
             }
         else:
             st.warning(t("need_input"))
@@ -232,7 +263,9 @@ with st.sidebar:
     st.markdown("---")
     # استعراض سجل الفحوصات المحفوظة في SQLite
     st.subheader(f"{t('history')} {ltr('(SQLite DB)')}")
-    records = get_recent_audits(limit=8)
+    if HISTORY_MODE != "shared":
+        st.caption(t("history_private"))
+    records = get_recent_audits(limit=8, owner=owner)
     if records:
         current_id = st.session_state.audit_meta.get("id")
         for r in records:
@@ -243,17 +276,19 @@ with st.sidebar:
             st.caption(t("history_score", score=score, issues=issues, traps=traps))
             c_open, c_del = st.columns(2)
             if has_json and c_open.button(t("open"), key=f"open_{audit_id}", width="stretch"):
-                load_audit_into_state(get_audit(audit_id))
+                record = get_audit(audit_id, owner)
+                if record:
+                    load_audit_into_state(record)
                 st.rerun()
             if c_del.button(t("delete"), key=f"del_{audit_id}", width="stretch"):
-                delete_audit(audit_id)
+                delete_audit(audit_id, owner)
                 if audit_id == current_id:
                     st.session_state.audit_report = None
                     st.session_state.audit_meta = {}
                 st.rerun()
             st.markdown("---")
         if st.button(t("clear_all"), width="stretch"):
-            clear_audits()
+            clear_audits(owner)
             st.rerun()
     else:
         st.caption(t("no_history"))
@@ -268,7 +303,7 @@ report: AuditReport = st.session_state.audit_report
 
 if report is None:
     st.divider()
-    db_stats = get_stats()
+    db_stats = get_stats(owner)
     s1, s2, s3 = st.columns(3)
     s1.metric(t("stat_total"), db_stats["total"], border=True)
     s2.metric(t("stat_avg"), f"{db_stats['avg_score']}%", border=True)
@@ -297,9 +332,9 @@ stats = report_stats(report)
 traps_list, metadata_obj = report.traps, report.metadata
 
 st.markdown(
-    f'<span class="engine-pill">🤖 {html.escape(engine_label(meta.get("engine"), lang))}</span>'
-    f'<span class="engine-pill">📁 {html.escape(type_info(category, lang)["name"])}</span>'
-    f'<span class="engine-pill">📄 {html.escape(source_label(meta.get("source"), lang))}</span>',
+    f'<span class="engine-pill">🤖 {safe_html(engine_label(meta.get("engine"), lang))}</span>'
+    f'<span class="engine-pill">📁 {safe_html(type_info(category, lang)["name"])}</span>'
+    f'<span class="engine-pill">📄 {safe_html(source_label(meta.get("source"), lang))}</span>',
     unsafe_allow_html=True,
 )
 st.write("")
@@ -326,15 +361,15 @@ parties_str = (", " if is_en else "، ").join(metadata_obj.parties) if metadata_
 rows = [("👥", "parties", parties_str), ("⏳", "duration", metadata_obj.effective_duration),
         ("💰", "financial", metadata_obj.financial_terms), ("🔄", "renewal", metadata_obj.renewal_clause)]
 for col, (icon, key, value) in zip([m_col1, m_col1, m_col2, m_col2], rows):
-    col.markdown(f'<div class="meta-row">{icon} <b>{t(key)}:</b> <bdi>{html.escape(value)}</bdi></div>', unsafe_allow_html=True)
+    col.markdown(f'<div class="meta-row">{icon} <b>{t(key)}:</b> <bdi>{safe_html(value)}</bdi></div>', unsafe_allow_html=True)
 with st.expander(t("summary")):
-    st.write(report.contract_summary)
+    st.markdown(md_escape(report.contract_summary))
 
 # 3. كاشف الفخاخ التعاقدية
 st.subheader(heading("traps_title"))
 if traps_list:
     for trap in sorted(traps_list, key=lambda x: x.severity != "حرج جداً"):
-        message = f"**{t('trap_prefix')}: {trap.trap_name}** ({show(trap.severity, lang)})\n\n{trap.explanation}"
+        message = f"**{t('trap_prefix')}: {md_escape(trap.trap_name)}** ({show(trap.severity, lang)})\n\n{md_escape(trap.explanation)}"
         if trap.severity == "حرج جداً":
             st.error(message, icon="⚠️")
         else:
@@ -364,31 +399,38 @@ for idx, item in enumerate(report.items):
         continue
     badge = STATUS_BADGE.get(item.status, "⚪")
 
-    with st.expander(f"**{item.clause_title}** | {t('dimension')}: [{show(item.risk_category, lang)}] — "
+    with st.expander(f"**{md_escape(item.clause_title)}** | {t('dimension')}: [{show(item.risk_category, lang)}] — "
                      f"{t('status')}: {show(item.status, lang)} {badge}"):
         st.markdown(f"**{t('quote')}**")
-        st.markdown(f'<div class="clause-quote">{html.escape(item.contract_snippet)}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="clause-quote">{safe_html(item.contract_snippet)}</div>', unsafe_allow_html=True)
         c_a, c_b = st.columns([3, 1])
         with c_a:
-            st.markdown(f"**{t('analysis')}:** {item.analysis}")
-            st.markdown(f"**{t('reference')}:** {item.legal_reference}")
+            st.markdown(f"**{t('analysis')}:** {md_escape(item.analysis)}")
+            st.markdown(f"**{t('reference')}:** {md_escape(item.legal_reference)}")
         with c_b:
             st.markdown(f"**{t('risk_level')}:** {show(item.risk_level, lang)}")
             st.markdown(f"**{t('status')}:** {badge} {show(item.status, lang)}")
         if item.recommendation:
             st.markdown(t("alt_wording"))
-            st.markdown(f'<div class="alt-clause">{html.escape(item.recommendation)}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="alt-clause">{safe_html(item.recommendation)}</div>', unsafe_allow_html=True)
 
         # محاكي التفاوض
         if is_issue:
             st.markdown("---")
             if st.button(t("negotiate_btn"), key=f"btn_neg_{idx}"):
+                neg_engine_choice = engine_choice
+                if engine_choice != "rules" and llm_available():
+                    if within_session_limit(st.session_state._llm_negs, NEGOTIATION_SESSION_LIMIT) and LLM_LIMITER.try_acquire():
+                        st.session_state._llm_negs += 1
+                    else:
+                        neg_engine_choice = "rules"
+                        st.info(t("limit_neg"))
                 with st.spinner(t("negotiating")):
                     session, neg_engine, neg_warning = negotiate(
                         clause_title=item.clause_title, problematic_text=item.contract_snippet,
                         issue_context=item.analysis, recommendation=item.recommendation,
                         legal_reference=item.legal_reference, contract_category=category,
-                        engine=engine_choice, lang=lang,
+                        engine=neg_engine_choice, lang=lang,
                     )
                     st.session_state.negotiation_data[idx] = session
                     if neg_warning:
@@ -405,13 +447,13 @@ for idx, item in enumerate(report.items):
                     else:
                         is_weak = turn_idx % 2 == 0
                     with st.chat_message("user" if is_weak else "assistant", avatar="👤" if is_weak else "🏢"):
-                        st.markdown(f"**{turn.speaker}:** {turn.argument}")
+                        st.markdown(f"**{md_escape(turn.speaker)}:** {md_escape(turn.argument)}")
 
                 st.success(t("agreed", ww=ltr("(Win-Win)")))
-                st.markdown(f'<div class="alt-clause">{html.escape(neg_result.agreed_clause)}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="alt-clause">{safe_html(neg_result.agreed_clause)}</div>', unsafe_allow_html=True)
                 b1, b2 = st.columns(2)
-                b1.info(f"🏢 **{t('gains', p=party_name(strong_party))}:**\n\n{neg_result.benefits_for_party_a}")
-                b2.info(f"👤 **{t('gains', p=party_name(weak_party))}:**\n\n{neg_result.benefits_for_party_b}")
+                b1.info(f"🏢 **{t('gains', p=party_name(strong_party))}:**\n\n{md_escape(neg_result.benefits_for_party_a)}")
+                b2.info(f"👤 **{t('gains', p=party_name(weak_party))}:**\n\n{md_escape(neg_result.benefits_for_party_b)}")
 
 st.divider()
 
@@ -436,7 +478,7 @@ st.download_button(
 
 if meta.get("text"):
     with st.expander(t("show_text")):
-        st.markdown(f'<div class="clause-quote" style="white-space: pre-wrap;">{html.escape(meta["text"].strip())}</div>',
+        st.markdown(f'<div class="clause-quote" style="white-space: pre-wrap;">{safe_html(meta["text"].strip())}</div>',
                     unsafe_allow_html=True)
 
 st.caption(t("disclaimer"))

@@ -11,6 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from labor_law_data import type_info
 from negotiator import llm_available
 from rules_engine import analyze_contract
+from security import logger
 from schemas import (AuditReport, ComplianceItem, ContractMetadata, ContractTrap,  # noqa: F401 (إعادة تصدير)
                      compute_score)
 
@@ -100,8 +101,9 @@ def run_audit(contract_text: str, contract_category: str, engine: str = "auto",
 
     try:
         return audit_contract_text(contract_text, contract_category, lang), "llm", None
-    except Exception as err:
-        detail = f"{type(err).__name__}: {str(err)[:160]}"
-        warning = (f"The language model audit could not be completed ({detail}); fell back to the local engine." if en
-                   else f"تعذر إكمال الفحص عبر نموذج اللغة ({detail})، تم الرجوع للمحرك المحلي.")
+    except Exception:
+        # التفاصيل في سجل الخادم فقط؛ المستخدم يرى رسالة عامة لا تكشف معلومات داخلية
+        logger.exception("LLM audit failed; falling back to the rules engine")
+        warning = ("The language model is unavailable right now; the audit was run by the local engine." if en
+                   else "نموذج اللغة غير متاح حالياً، تم الفحص بالمحرك المحلي.")
         return analyze_contract(contract_text, contract_category, lang), "rules", warning

@@ -4,6 +4,15 @@ primaryColor = "#FF4B4B"
 [server]
 headless = true
 runOnSave = true
+# حد أقصى لحجم ملف العقد المرفوع (ميغابايت) لمنع استنزاف موارد الخادم
+maxUploadSize = 10
+# حماية من طلبات التزوير عبر المواقع (الوضع الافتراضي، مذكور صراحة للتوثيق)
+enableXsrfProtection = true
+
+[client]
+# عدم عرض تفاصيل الأخطاء وتتبع الكود للزوار؛ التفاصيل تبقى في سجل الخادم
+showErrorDetails = "none"
+toolbarMode = "viewer"
 
 [browser]
 gatherUsageStats = false
